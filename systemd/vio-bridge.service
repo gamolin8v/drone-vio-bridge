@@ -1,0 +1,18 @@
+[Unit]
+Description=drone-vio-bridge — VIO position bridge for ArduPilot / iNav / Betaflight
+After=network.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__REPO_DIR__
+ExecStart=__VENV__/bin/python __REPO_DIR__/main.py --config __REPO_DIR__/config.yaml
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+# Give hardware access
+SupplementaryGroups=dialout spi i2c video
+
+[Install]
+WantedBy=multi-user.target

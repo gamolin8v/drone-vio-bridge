@@ -1,0 +1,98 @@
+# drone-vio-bridge configuration
+# Edit this file to match your hardware setup
+
+system:
+  log_level: INFO       # DEBUG / INFO / WARNING / ERROR
+  update_rate_hz: 30    # Main VIO loop rate (Hz)
+  web_ui: true          # Enable web dashboard on port 5000
+
+camera:
+  type: rpi             # rpi | usb | oak_d | mock
+  device: /dev/video0   # for usb; ignored for rpi/oak_d
+  width: 640
+  height: 480
+  fps: 30
+  # For RPi camera: IMX296 global shutter recommended (OV9281 also works)
+  # calibration file (auto-created by calibrate.py)
+  calibration_file: config/camera_calibration.yaml
+
+imu:
+  type: icm42688        # icm42688 | mpu6050 | bno085 | oak_d | mock
+  bus: spi              # spi | i2c
+  device: /dev/spidev0.0  # SPI device (for icm42688 via SPI)
+  i2c_address: 0x68     # I2C address (for mpu6050/bno085)
+  rate_hz: 200          # IMU sample rate (Hz)
+  # Noise parameters (defaults for ICM-42688-P; tune with calibrate.py)
+  gyro_noise: 0.005     # rad/s / sqrt(Hz)
+  accel_noise: 0.01     # m/s^2 / sqrt(Hz)
+  gyro_bias_noise: 0.0001
+  accel_bias_noise: 0.0001
+
+vio:
+  algorithm: simple_vo  # simple_vo | openvins | mock
+  # simple_vo: pure Python, runs on any RPi
+  # openvins: requires OpenVINS compiled (better accuracy)
+  # mock: sine-wave test pose (no camera/IMU needed)
+
+  scale_source: rangefinder  # rangefinder | imu | fixed
+  # rangefinder: scale from downward rangefinder (best for indoor hover)
+  # imu: scale estimated from IMU velocity (less accurate)
+  # fixed: use fixed_scale value (for testing)
+  fixed_scale: 1.0
+
+  min_features: 50       # Reinitialize tracking if below this
+  max_features: 500
+  ransac_threshold: 1.0  # pixels, for essential matrix estimation
+
+  # EKF tuning
+  position_noise: 0.1    # meters
+  velocity_noise: 0.05   # m/s
+
+  # Coordinate frame output (NED = North-East-Down)
+  output_frame: NED      # NED | ENU
+
+output:
+  # Enable/disable each autopilot bridge
+  ardupilot:
+    enabled: true
+    port: /dev/ttyAMA0   # UART to flight controller (or /dev/serial0)
+    baudrate: 921600
+    # Send rate for VISION_POSITION_ESTIMATE (Hz)
+    # ArduPilot recommends 10-50 Hz
+    send_rate_hz: 20
+
+  inav:
+    enabled: false
+    port: /dev/ttyUSB0
+    baudrate: 115200
+    send_rate_hz: 10
+    # Inject as GPS: VIO position → fake GPS coordinates
+    # Uses local origin as (0,0) = (lat0, lon0)
+    origin_lat: 50.450001  # degrees, your actual location
+    origin_lon: 30.523333
+    origin_alt: 150        # meters ASL
+
+  betaflight:
+    enabled: false
+    port: /dev/ttyUSB1
+    baudrate: 115200
+    send_rate_hz: 50
+    # RC channels to override for position hold
+    # Betaflight must have MSP_OVERRIDE mode enabled
+    override_channels: [1, 2, 3]  # Roll, Pitch, Throttle
+    hover_throttle: 1500  # microseconds (adjust to your drone)
+    pos_p: 0.5            # Position P gain (tune carefully!)
+    pos_i: 0.02
+    vel_p: 0.3
+
+rangefinder:
+  enabled: false
+  type: vl53l1x          # vl53l1x | tf_mini | lidar_lite | msp
+  i2c_address: 0x29
+  port: /dev/ttyS0       # for serial rangefinders
+  max_range_m: 4.0
+
+web:
+  host: 0.0.0.0
+  port: 5000
+  update_interval_ms: 100  # dashboard refresh rate
